@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Loan Prediction</title>
+</head>
+<body>
+    <h2>Loan Approval Prediction (CSV Upload)</h2>
+
+    <form action="/predict_csv" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" accept=".csv">
+        <button type="submit">Upload & Predict</button>
+    </form>
+
+    <div id="results"></div>
+
+    <script>
+        const form = document.querySelector("form");
+        form.addEventListener("submit", async function(e) {
+            e.preventDefault();
+            const fileInput = form.querySelector("input[type=file]");
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            const response = await fetch("/predict_csv", {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await response.json();
+            let output = "<h3>Predictions</h3><ul>";
+            data.predictions.forEach(p => {
+                output += `<li>Row ${p.index}: <b>${p.prediction_label}</b> 
+                           (Approved: ${p.confidence.approved.toFixed(2)}, 
+                            Rejected: ${p.confidence.rejected.toFixed(2)})</li>`;
+            });
+            output += "</ul>";
+            document.getElementById("results").innerHTML = output;
+        });
+    </script>
+</body>
+</html>
