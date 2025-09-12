@@ -1,9 +1,8 @@
-from fastapi import FastAPI, UploadFile, File, Request
+from fastapi import FastAPI, UploadFile, File, Form, Request
 from fastapi.responses import HTMLResponse
 import pandas as pd
 import joblib
 import os
-import numpy as np
 
 app = FastAPI(title="Loan Prediction")
 MAX_ROWS = 10000  # Prevent too large uploads
@@ -30,36 +29,45 @@ model = joblib.load(model_path)
 preprocessor = joblib.load(preprocessor_path)
 
 
-@app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
-    """Upload form for CSV."""
-    html_content = """
+def render_page(table_html: str = "") -> str:
+    """Reusable page renderer with optional results table."""
+    return f"""
     <html>
     <head>
         <title>Loan Prediction</title>
         <style>
-            body { font-family: Arial, sans-serif; margin: 40px; text-align: center; }
-            form { margin: 20px auto; }
-            input[type=file] { margin-bottom: 10px; }
-            button { padding: 8px 16px; background: #007BFF; color: white; border: none; border-radius: 4px; cursor: pointer; }
-            button:hover { background: #0056b3; }
+            body {{ font-family: Arial, sans-serif; margin: 40px; text-align: center; }}
+            form {{ margin: 20px auto; }}
+            input[type=file] {{ margin-bottom: 10px; }}
+            button {{ padding: 8px 16px; background: #007BFF; color: white;
+                      border: none; border-radius: 4px; cursor: pointer; }}
+            button:hover {{ background: #0056b3; }}
+            table {{ border-collapse: collapse; width: 80%; margin: 20px auto; }}
+            th, td {{ border: 1px solid #ccc; padding: 8px 12px; text-align: center; }}
+            th {{ background-color: #f4f4f4; }}
         </style>
     </head>
     <body>
         <h2>Upload CSV for Loan Prediction</h2>
-        <form action="/predict_csv" enctype="multipart/form-data" method="post">
+        <form action="/" enctype="multipart/form-data" method="post">
             <input type="file" name="file" accept=".csv" required><br>
             <button type="submit">Predict</button>
         </form>
+        {table_html}
     </body>
     </html>
     """
-    return HTMLResponse(content=html_content)
 
 
-@app.post("/predict_csv", response_class=HTMLResponse)
-async def predict_csv(file: UploadFile = File(...)):
-    """Predict loan approvals from CSV and return HTML table."""
+@app.get("/", response_class=HTMLResponse)
+async def home():
+    """Initial upload form page."""
+    return HTMLResponse(content=render_page())
+
+
+@app.post("/", response_class=HTMLResponse)
+async def predict(file: UploadFile = File(...)):
+    """Upload CSV, predict, and render results below form."""
     df = pd.read_csv(file.file, nrows=MAX_ROWS)
     df_test = df.drop(columns=["loan_status"], errors="ignore")
 
@@ -71,36 +79,21 @@ async def predict_csv(file: UploadFile = File(...)):
     if hasattr(model, "predict_proba"):
         probs = model.predict_proba(X)
     else:
-        # fallback for models without predict_proba
         probs = [[1 if p == 1 else 0, 1 if p == 0 else 0] for p in preds]
 
-    # Prepare results
-    results = []
-    for i, (pred, prob) in enumerate(zip(preds, probs)):
-        results.append({
-            "index": i,
-            "prediction_label": "Approved" if pred == 1 else "Rejected",
-            "approved_prob": float(prob[1]),
-            "rejected_prob": float(prob[0])
-        })
-
     # Build HTML table
+    rows_html = ""
+    for i, (pred, prob) in enumerate(zip(preds, probs)):
+        rows_html += f"""
+            <tr>
+                <td>{i}</td>
+                <td>{"Approved" if pred == 1 else "Rejected"}</td>
+                <td>{float(prob[1]):.4f}</td>
+                <td>{float(prob[0]):.4f}</td>
+            </tr>
+        """
+
     table_html = f"""
-    <html>
-    <head>
-        <title>Loan Predictions</title>
-        <style>
-            body {{ font-family: Arial, sans-serif; margin: 20px; }}
-            table {{ border-collapse: collapse; width: 80%; margin: auto; }}
-            th, td {{ border: 1px solid #ccc; padding: 8px 12px; text-align: center; }}
-            th {{ background-color: #f4f4f4; }}
-            h2 {{ text-align: center; }}
-            .back {{ display: block; text-align: center; margin-top: 20px; }}
-            .btn {{ padding: 6px 12px; background: #007BFF; color: white; border: none; border-radius: 4px; text-decoration: none; }}
-            .btn:hover {{ background: #0056b3; }}
-        </style>
-    </head>
-    <body>
         <h2>Loan Predictions ({len(df_test)} rows)</h2>
         <p>⚠️ Processed only first {MAX_ROWS} rows for performance</p>
         <table>
@@ -108,26 +101,9 @@ async def predict_csv(file: UploadFile = File(...)):
                 <tr><th>Index</th><th>Prediction</th><th>Approved Prob</th><th>Rejected Prob</th></tr>
             </thead>
             <tbody>
-    """
-
-    for row in results:
-        table_html += f"""
-            <tr>
-                <td>{row['index']}</td>
-                <td>{row['prediction_label']}</td>
-                <td>{row['approved_prob']:.4f}</td>
-                <td>{row['rejected_prob']:.4f}</td>
-            </tr>
-        """
-
-    table_html += """
+                {rows_html}
             </tbody>
         </table>
-        <div class="back">
-            <a class="btn" href="/">Upload Another CSV</a>
-        </div>
-    </body>
-    </html>
     """
 
-    return HTMLResponse(content=table_html)
+    return HTMLResponse(content=render_page(table_html))
