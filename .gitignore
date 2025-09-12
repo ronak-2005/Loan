@@ -22,13 +22,6 @@ venv/
 *.json
 *.db
 
-# Models & artifacts
-*.pkl
-*.joblib
-*.h5
-*.pt
-*.onnx
-
 # Archives
 *.zip
 *.tar
