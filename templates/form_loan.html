@@ -193,6 +193,12 @@
         loadingSection.classList.add('hidden');
         submitBtn.disabled = false;
         submitBtn.textContent = 'Upload & Predict';
+        
+        // Clear the loading message interval
+        if (window.loadingMessageInterval) {
+          clearInterval(window.loadingMessageInterval);
+          window.loadingMessageInterval = null;
+        }
       }
 
       function showError(message) {
