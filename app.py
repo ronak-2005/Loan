@@ -1,5 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 import pandas as pd
 import joblib
@@ -27,18 +27,17 @@ else:
 model = joblib.load(model_path)
 preprocessor = joblib.load(preprocessor_path)
 
-# ✅ Setup templates
+# Setup templates
 templates = Jinja2Templates(directory="templates")
 
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    # render form_loan.html instead of static file
-    return templates.TemplateResponse("form_loan.html", {"request": request})
+    return templates.TemplateResponse("form_loan.html", {"request": request, "predictions": None})
 
 
-@app.post("/predict_csv")
-async def predict_csv(file: UploadFile = File(...)):
+@app.post("/predict_csv", response_class=HTMLResponse)
+async def predict_csv(request: Request, file: UploadFile = File(...)):
     df = pd.read_csv(file.file, nrows=MAX_ROWS)
     df_test = df.drop(columns=["loan_status"], errors="ignore")
 
@@ -52,13 +51,16 @@ async def predict_csv(file: UploadFile = File(...)):
     else:
         probs = [[1 if p == 1 else 0, 1 if p == 0 else 0] for p in preds]
 
+    # Prepare top 10 results
     results = []
     for i, (pred, prob) in enumerate(zip(preds, probs)):
         results.append({
-            "Index": int(i),
+            "index": i,
             "Prediction": "Approved" if pred == 1 else "Rejected",
             "Approved Probability": round(float(prob[1]), 4),
             "Rejected Probability": round(float(prob[0]), 4),
         })
 
-    return JSONResponse(content={"predictions": results})
+    top_10 = results[:10]
+
+    return templates.TemplateResponse("form_loan.html", {"request": request, "predictions": top_10})
