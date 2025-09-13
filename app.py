@@ -1,6 +1,6 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Request
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 import pandas as pd
 import joblib
 import os
@@ -27,13 +27,15 @@ else:
 model = joblib.load(model_path)
 preprocessor = joblib.load(preprocessor_path)
 
-# Serve frontend
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# ✅ Setup templates
+templates = Jinja2Templates(directory="templates")
+
 
 @app.get("/", response_class=HTMLResponse)
-async def home():
-    with open(os.path.join(BASE_DIR, "static/index.html"), "r") as f:
-        return HTMLResponse(content=f.read())
+async def home(request: Request):
+    # render form_loan.html instead of static file
+    return templates.TemplateResponse("form_loan.html", {"request": request})
+
 
 @app.post("/predict_csv")
 async def predict_csv(file: UploadFile = File(...)):
