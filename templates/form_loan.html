@@ -2,56 +2,241 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Loan Approval Predictor</title>
   <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 min-h-screen flex flex-col items-center py-10">
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
 
-  <div class="bg-white shadow-xl rounded-2xl p-8 w-full max-w-3xl">
-    <h1 class="text-3xl font-bold text-center text-indigo-600 mb-6">
-      💰 Loan Approval Batch Prediction
-    </h1>
+    @keyframes pulse {
+      0%, 100% { opacity: 0.8; }
+      50% { opacity: 0.4; }
+    }
+
+    .fade-in { animation: fadeIn 0.5s ease-out; }
+    .slide-down { animation: slideDown 0.4s ease-out; }
+    .pulse-dot { animation: pulse 1.2s infinite; }
+    
+    .approved { color: #059669; background: #d1fae5; }
+    .rejected { color: #dc2626; background: #fee2e2; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
+
+  <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-lg fade-in">
+    
+    <!-- Header -->
+    <div class="text-center mb-8">
+      <div class="text-4xl mb-3">💰</div>
+      <h1 class="text-2xl font-semibold text-indigo-600 mb-2">
+        Loan Approval Batch Prediction
+      </h1>
+    </div>
 
     <!-- Upload Form -->
-    <form class="flex flex-col items-center space-y-4" 
-          action="/predict_csv" method="post" enctype="multipart/form-data">
-      <input type="file" name="file" accept=".csv" required
-             class="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0
-                    file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-600
-                    hover:file:bg-indigo-100">
-      <button type="submit"
-              class="px-6 py-2 bg-indigo-600 text-white rounded-xl shadow hover:bg-indigo-700 transition">
-        Upload & Predict
-      </button>
+    <form id="uploadForm" class="space-y-6">
+      <div class="text-center">
+        <input id="fileInput" type="file" accept=".csv" required class="hidden">
+        <label for="fileInput" 
+               class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md 
+                      text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 
+                      cursor-pointer transition-colors">
+          Choose file
+        </label>
+        <span id="fileName" class="ml-3 text-sm text-gray-500">No file chosen</span>
+      </div>
+      
+      <div class="text-center">
+        <button id="submitBtn" type="submit"
+                class="px-8 py-3 bg-indigo-600 text-white rounded-md font-medium
+                       hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed
+                       transition-colors">
+          Upload & Predict
+        </button>
+      </div>
     </form>
 
-    {% if predictions %}
-    <div class="mt-8">
-      <h2 class="text-xl font-semibold text-gray-700 mb-4">Top 10 Prediction Results</h2>
-      <div class="overflow-x-auto rounded-xl shadow">
-        <table class="w-full text-sm text-left border-collapse">
-          <thead class="bg-indigo-100 text-indigo-700">
-            <tr>
-              <th class="px-4 py-2">Index</th>
-              <th class="px-4 py-2">Prediction</th>
-              <th class="px-4 py-2">Approved Probability</th>
-              <th class="px-4 py-2">Rejected Probability</th>
-            </tr>
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            {% for row in predictions %}
-            <tr class="hover:bg-indigo-50 transition">
-              <td class="px-4 py-2">{{ row.index }}</td>
-              <td class="px-4 py-2">{{ row.Prediction }}</td>
-              <td class="px-4 py-2">{{ row['Approved Probability'] }}</td>
-              <td class="px-4 py-2">{{ row['Rejected Probability'] }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+    <!-- Loading -->
+    <div id="loadingSection" class="hidden mt-6 text-center slide-down">
+      <div class="flex justify-center items-center space-x-1">
+        <div class="w-2 h-2 bg-indigo-500 rounded-full pulse-dot" style="animation-delay: 0s"></div>
+        <div class="w-2 h-2 bg-indigo-500 rounded-full pulse-dot" style="animation-delay: 0.2s"></div>
+        <div class="w-2 h-2 bg-indigo-500 rounded-full pulse-dot" style="animation-delay: 0.4s"></div>
+      </div>
+      <p class="text-sm text-gray-600 mt-2">Processing...</p>
+    </div>
+
+    <!-- Error -->
+    <div id="errorSection" class="hidden mt-6 slide-down">
+      <div class="p-3 bg-red-50 border border-red-200 rounded-md">
+        <p class="text-sm text-red-600" id="errorMessage"></p>
       </div>
     </div>
-    {% endif %}
+
+    <!-- Results -->
+    <div id="resultsSection" class="hidden mt-6 slide-down">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="text-lg font-medium text-gray-900">Results</h3>
+        <button id="downloadBtn" 
+                class="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors">
+          Download CSV
+        </button>
+      </div>
+      <div class="bg-gray-50 rounded-md p-3">
+        <div class="space-y-3" id="resultsBody">
+          <!-- Results will be inserted here -->
+        </div>
+        <p class="text-xs text-gray-500 mt-3">Showing top 5 results</p>
+      </div>
+    </div>
+
   </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const form = document.getElementById('uploadForm');
+      const fileInput = document.getElementById('fileInput');
+      const fileName = document.getElementById('fileName');
+      const submitBtn = document.getElementById('submitBtn');
+      const downloadBtn = document.getElementById('downloadBtn');
+      const loadingSection = document.getElementById('loadingSection');
+      const resultsSection = document.getElementById('resultsSection');
+      const errorSection = document.getElementById('errorSection');
+      const errorMessage = document.getElementById('errorMessage');
+      const resultsBody = document.getElementById('resultsBody');
+      
+      let allPredictions = [];
+
+      // Download CSV
+      downloadBtn.addEventListener('click', function() {
+        if (allPredictions.length === 0) return;
+        
+        let csvContent = "Row_Index,Prediction,Approved_Probability,Rejected_Probability\n";
+        allPredictions.forEach(row => {
+          csvContent += `${row.index},${row.Prediction},${row['Approved Probability']},${row['Rejected Probability']}\n`;
+        });
+        
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'loan_approval_predictions.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      });
+
+      // File selection
+      fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        fileName.textContent = file ? file.name : 'No file chosen';
+      });
+
+      // Form submission
+      form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        if (!fileInput.files[0]) {
+          showError('Please select a CSV file');
+          return;
+        }
+        
+        hideResults();
+        hideError();
+        showLoading();
+        
+        try {
+          const formData = new FormData();
+          formData.append('file', fileInput.files[0]);
+          
+          const response = await fetch('/predict_csv', {
+            method: 'POST',
+            body: formData
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Upload failed');
+          }
+          
+          const result = await response.json();
+          
+          if (result.predictions && result.predictions.length > 0) {
+            displayResults(result.predictions);
+          } else {
+            throw new Error('No predictions received');
+          }
+          
+        } catch (error) {
+          showError(error.message);
+        } finally {
+          hideLoading();
+        }
+      });
+
+      function showLoading() {
+        loadingSection.classList.remove('hidden');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Processing...';
+      }
+
+      function hideLoading() {
+        loadingSection.classList.add('hidden');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Upload & Predict';
+      }
+
+      function showError(message) {
+        errorMessage.textContent = message;
+        errorSection.classList.remove('hidden');
+      }
+
+      function hideError() {
+        errorSection.classList.add('hidden');
+      }
+
+      function displayResults(predictions) {
+        allPredictions = predictions;
+        resultsBody.innerHTML = '';
+        
+        predictions.slice(0, 5).forEach(row => {
+          const div = document.createElement('div');
+          div.className = 'border rounded-md p-3 bg-white';
+          
+          const statusClass = row.Prediction === 'Approved' ? 'approved' : 'rejected';
+          const statusIcon = row.Prediction === 'Approved' ? '✅' : '❌';
+          
+          div.innerHTML = `
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-gray-600 text-sm">Row ${row.index}</span>
+              <span class="px-2 py-1 rounded text-xs font-medium ${statusClass}">
+                ${statusIcon} ${row.Prediction}
+              </span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-xs text-gray-600">
+              <div>Approved: ${(row['Approved Probability'] * 100).toFixed(1)}%</div>
+              <div>Rejected: ${(row['Rejected Probability'] * 100).toFixed(1)}%</div>
+            </div>
+          `;
+          resultsBody.appendChild(div);
+        });
+        
+        resultsSection.classList.remove('hidden');
+      }
+
+      function hideResults() {
+        resultsSection.classList.add('hidden');
+      }
+    });
+  </script>
 </body>
 </html>
