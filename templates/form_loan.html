@@ -2,25 +2,25 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Titanic Survival Predictor</title>
+  <title>Loan Approval Predictor</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col items-center py-10">
 
-  <div class="bg-white shadow-xl rounded-2xl p-8 w-full max-w-2xl">
+  <div class="bg-white shadow-xl rounded-2xl p-8 w-full max-w-3xl">
     <h1 class="text-3xl font-bold text-center text-indigo-600 mb-6">
-      🚢 Titanic Survival Batch Prediction
+      💰 Loan Approval Batch Prediction
     </h1>
 
     <!-- Upload Form -->
-    <form id="csvForm" class="flex flex-col items-center space-y-4" 
+    <form id="csvForm" class="flex flex-col items-center space-y-4"
           action="/predict_csv" method="post" enctype="multipart/form-data">
-      <input type="file" name="file" accept=".csv" required 
+      <input type="file" name="file" accept=".csv" required
              class="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0
                     file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-600
                     hover:file:bg-indigo-100">
-      <button type="submit" 
+      <button type="submit"
               class="px-6 py-2 bg-indigo-600 text-white rounded-xl shadow hover:bg-indigo-700 transition">
         Upload & Predict
       </button>
@@ -40,7 +40,7 @@
 
       <!-- Download button -->
       <div class="flex justify-end mt-4">
-        <button id="downloadBtn" 
+        <button id="downloadBtn"
                 class="px-5 py-2 bg-green-500 text-white rounded-xl shadow hover:bg-green-600 transition">
           Download CSV
         </button>
@@ -99,7 +99,7 @@
       });
 
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      saveAs(blob, "predictions.csv");
+      saveAs(blob, "loan_predictions.csv");
     });
   </script>
 </body>
